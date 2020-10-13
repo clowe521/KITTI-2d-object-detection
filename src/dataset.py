@@ -125,11 +125,8 @@ class KITTI2D(Dataset):
         h, w, _ = image.shape
         dim_diff = np.abs(h - w)
 
-        # Upper left padding
-        pad1 = dim_diff // 2
-
-        # lower right padding
-        pad2 = 0
+        # Upper left padding, lower right padding
+        pad1, pad2 = dim_diff // 2, dim_diff - dim_diff // 2
 
         # Determine padding
         pad = ((pad1, pad2), (0, 0), (0, 0)) if h <= w else ((0, 0), (pad1, pad2), (0, 0))
