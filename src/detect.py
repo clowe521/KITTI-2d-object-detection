@@ -23,11 +23,17 @@ from PIL import Image
 from matplotlib.ticker import NullLocator
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
+from allegroai import Task, DataView, DatasetVersion
 
+# hack: fix root repository path
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from src.dataset_allegro import AllegroDataset
 from src.utils import non_max_suppression, load_classes
 from src.dataset import ImageFolder
 from src.model import Darknet
-from allegroai import Task
 
 
 def detect(
@@ -60,8 +66,20 @@ def detect(
 
     model.eval()  # Set in evaluation mode
 
-    dataloader = DataLoader(ImageFolder(image_path, img_size=416),
-                            batch_size=2, shuffle=False, num_workers=0)
+    # Allegro.ai dataview
+    dataview = DataView()
+    dataview.add_query(dataset_name='KITTI 2D', version_name='testing')
+    singleframe_list = dataview.to_list()
+
+    # original Dataset, ImageFolder (running over local files)
+    # torch_dataset_object = ImageFolder(image_path, img_size=416)
+
+    # Allegro.ai Torch Dataset (replacing the original ImageFolder)
+    limit_num_test_frame = 10
+    torch_dataset_object = AllegroDataset(singleframe_list[:limit_num_test_frame], train=False)
+
+    # Torch DataLoader
+    dataloader = DataLoader(torch_dataset_object, batch_size=2, shuffle=False, num_workers=0)
 
     classes = load_classes(class_path)  # Extracts class labels from file
 
@@ -73,7 +91,7 @@ def detect(
     print('data size : %d' % len(dataloader))
     print('\nPerforming object detection:')
     prev_time = time.time()
-    for batch_i, (img_paths, input_imgs) in enumerate(dataloader):
+    for batch_i, (img_paths, input_imgs, ignored_labels) in enumerate(dataloader):
         # Configure input
         input_imgs = Variable(input_imgs.type(Tensor))
 
@@ -103,6 +121,8 @@ def detect(
     for img_i, (path, detections) in enumerate(zip(imgs, img_detections)):
 
         print("(%d) Image: '%s'" % (img_i, path))
+        # Mark this frame as annotated
+        singleframe_list[img_i].add_annotation(frame_class=['annotated'])
 
         # Create plot
         img = np.array(Image.open(path))
@@ -147,6 +167,12 @@ def detect(
                          verticalalignment='top',
                          bbox={'color': color, 'pad': 0})
 
+                # store back to allegroai platform
+                singleframe_list[img_i].add_annotation(
+                    box2d_xywh=[x1, y1, box_w, box_h],
+                    labels=[classes[int(cls_pred)]],
+                    confidence=cls_conf.item())
+
         # Save generated image with detections
         plt.axis('off')
         plt.gca().xaxis.set_major_locator(NullLocator())
@@ -154,9 +180,23 @@ def detect(
         plt.savefig(os.path.join(output_path, '%d.png' % img_i), bbox_inches='tight', pad_inches=0.0)
         plt.close()
 
+    print('Registering back annotations to allegroai platform')
+    # get our version, if we failed, create a new one
+    try:
+        dataset = DatasetVersion.get_version(
+            dataset_name='KITTI 2D', version_name='replace_with_user_name')
+    except ValueError:
+        # let's create a new version, with parent version as testing
+        print('Creating new dataset version')
+        dataset = DatasetVersion.create_version(
+            dataset_name='KITTI 2D', version_name='replace_with_user_name',
+            parent_version_names=['testing'])
+    # now send all the frames we detected
+    dataset.add_frames(singleframe_list[:limit_num_test_frame])
+
 
 if __name__ == '__main__':
-    task = Task.init(project_name='example', task_name='detect')
+    task = Task.init(project_name='example', task_name='detect with allegroai and register back data')
     torch.multiprocessing.freeze_support()
     kwargs = dict(
         kitti_weights='./checkpoints/best_weights_kitti.pth',
