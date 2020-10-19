@@ -19,8 +19,8 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 
-from .parse_config import *
-from .utils import build_targets
+from parse_config import *
+from utils import build_targets
 
 
 def create_modules(module_defs):
