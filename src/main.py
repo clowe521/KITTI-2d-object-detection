@@ -14,9 +14,9 @@ import warnings
 import torch
 from torch.utils.data import DataLoader
 
-from src.dataset import KITTI2D
-from src.model import Darknet
-from src.train_model import train_model
+from dataset import KITTI2D
+from model import Darknet
+from train_model import train_model
 
 warnings.filterwarnings("ignore")
 
