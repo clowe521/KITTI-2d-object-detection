@@ -53,7 +53,7 @@ def detect(kitti_weights='../checkpoints/best_weights_kitti.pth', config_path='.
 
     model.eval()  # Set in evaluation mode
 
-    dataloader = DataLoader(ImageFolder("../data/samples/", img_size=416),
+    dataloader = DataLoader(ImageFolder("../data/samples2/", img_size=416),
                             batch_size=2, shuffle=False, num_workers=0)
 
     classes = load_classes(class_path)  # Extracts class labels from file
@@ -144,7 +144,7 @@ def detect(kitti_weights='../checkpoints/best_weights_kitti.pth', config_path='.
         plt.axis('off')
         plt.gca().xaxis.set_major_locator(NullLocator())
         plt.gca().yaxis.set_major_locator(NullLocator())
-        plt.savefig('../output/%d.png' % (img_i), bbox_inches='tight', pad_inches=0.0)
+        plt.savefig('../output2/%d.png' % (img_i), bbox_inches='tight', pad_inches=0.0)
         plt.close()
 
 
